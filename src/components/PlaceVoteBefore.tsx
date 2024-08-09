@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { server } from "@/utils/axios";
 import { Place } from "@/types/PlaceVote";
 
 // 컴포넌트 props 타입 정의
@@ -8,28 +6,23 @@ type PlaceVoteBeforeProps = {
   meetId: string;
   placeList: Place[];
   setIsVoted: (value: boolean) => void;
-  fetchPlaceVoteItems: () => Promise<void>;
+  setVotedPlaces: (places: Place[]) => void;
+  updatePlaceList: (places: Place[]) => void;
 };
 
 const PlaceVoteBefore = ({
   meetId,
   placeList,
   setIsVoted,
-  fetchPlaceVoteItems,
+  setVotedPlaces,
+  updatePlaceList,
 }: PlaceVoteBeforeProps) => {
   const [places, setPlaces] = useState<Place[]>(placeList);
-  const [newPlace, setNewPlace] = useState<string>(""); // 새로 추가할 모임 장소의 상태 관리
+  const [newPlace, setNewPlace] = useState<string>("");
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [selectedItemIdList, setSelectedItemIdList] = useState<string[]>([]);
 
-  const navigate = useNavigate();
-
-  // placeList가 변경될 때마다 places 상태를 업데이트
-  useEffect(() => {
-    setPlaces(placeList);
-  }, [placeList]);
-
-  // 장소가 변경될 때 선택된 장소 목록을 업데이트
+  // 초기 선택된 장소 선택
   useEffect(() => {
     const updatedSelectedItemIdList = places
       .filter((place) => place.isVote === "true")
@@ -37,93 +30,48 @@ const PlaceVoteBefore = ({
     setSelectedItemIdList(updatedSelectedItemIdList);
   }, [places]);
 
-  // 장소 입력 상태 관리 함수
-  const handlePlaceChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setNewPlace(event.target.value);
-  };
-
   // 새로운 장소 추가
-  const handleAddPlace = async () => {
-    console.log("Sending data to server:", { meetId, place: newPlace });
-    server
-      .post(`/meet/place/item`, {
-        data: {
-          meetId: meetId,
-          place: newPlace,
-        },
-      })
-      .then((response) => {
-        const newPlace: Place = {
-          id: response.data.id,
-          place: response.data.place,
-          editable: response.data.editable,
-          isVote: response.data.isVote,
-          memberList: response.data.memberList,
-        };
+  const handleAddPlace = () => {
+    const newPlaceItem: Place = {
+      id: Math.random().toString(36).substring(2), // 임시 ID 생성
+      place: newPlace,
+      editable: "true",
+      isVote: "false",
+      memberList: [],
+    };
 
-        setPlaces((prevPlaces) => [...prevPlaces, newPlace]);
-        setNewPlace(""); // 입력 필드 초기화
-        setIsAdding(false); // 장소 추가 입력창 숨기기
-      })
-      .catch((error) => {
-        if (error.code === "403") {
-          navigate("/Unauthorized");
-        } else if (error.code === "404") {
-          navigate("/not-found");
-        }
-      });
+    const updatedPlaces = [...places, newPlaceItem];
+    setPlaces(updatedPlaces);
+    updatePlaceList(updatedPlaces);
+    setNewPlace("");
+    setIsAdding(false);
   };
 
   // 장소 삭제
   const handleRemovePlace = (id: string) => {
-    server
-      .delete(`/meet/place/item?placeVoteItemId=${id}`)
-      .then((response) => {
-        setPlaces((prevList) => prevList.filter((place) => place.id !== id));
-      })
-      .catch((error) => {
-        if (error.code === "403") {
-          navigate("/Unauthorized");
-        } else if (error.code === "404") {
-          navigate("/not-found");
-        }
-      });
+    const updatedPlaces = places.filter((place) => place.id !== id);
+    setPlaces(updatedPlaces);
+    updatePlaceList(updatedPlaces);
   };
 
   // 체크박스 변경
   const handleCheckboxChange = (id: string, checked: boolean) => {
     if (checked) {
-      if (!selectedItemIdList.includes(id)) {
-        setSelectedItemIdList((prevList) => [...prevList, id]);
-      }
+      setSelectedItemIdList((prevList) => [...prevList, id]);
     } else {
-      if (selectedItemIdList.includes(id)) {
-        setSelectedItemIdList((prevList) =>
-          prevList.filter((itemId) => itemId !== id)
-        ); // 선택된 항목 목록에서 제거
-      }
+      setSelectedItemIdList((prevList) =>
+        prevList.filter((itemId) => itemId !== id)
+      );
     }
   };
 
   // 투표하기 버튼 클릭할 때
-  const handleVoteClick = async () => {
-    server
-      .put("/meet/place", {
-        data: {
-          meetId: meetId,
-          placeVoteItemList: selectedItemIdList,
-        },
-      })
-      .then((response) => {
-        setIsVoted(true);
-      })
-      .catch((error) => {
-        if (error.code === "403") {
-          navigate("/Unauthorized");
-        } else if (error.code === "404") {
-          navigate("/not-found");
-        }
-      });
+  const handleVoteClick = () => {
+    const votedPlaces = places.filter((place) =>
+      selectedItemIdList.includes(place.id)
+    );
+    setVotedPlaces(votedPlaces);
+    setIsVoted(true);
   };
 
   return (
@@ -134,7 +82,12 @@ const PlaceVoteBefore = ({
             <input
               type="checkbox"
               checked={selectedItemIdList.includes(place.id)}
-              onChange={(e) => handleCheckboxChange(place.id, e.target.checked)}
+              onChange={() =>
+                handleCheckboxChange(
+                  place.id,
+                  !selectedItemIdList.includes(place.id)
+                )
+              }
             />
             <span>{place.place}</span>
           </div>
@@ -162,7 +115,7 @@ const PlaceVoteBefore = ({
               type="text"
               placeholder="장소"
               value={newPlace}
-              onChange={handlePlaceChange}
+              onChange={(e) => setNewPlace(e.target.value)}
               className="border border-gray-300 rounded-lg px-2 py-1 w-full"
             />
 

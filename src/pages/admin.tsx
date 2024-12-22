@@ -63,8 +63,6 @@ const Admin = () => {
         }
       );
 
-      console.log('Kakao API 응답:', response.data);
-
       const friends = response.data.elements;
       for (let i = 0; i < friends.length; i++) {
           if (friends[i].id.toString() == memberId) {

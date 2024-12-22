@@ -23,7 +23,6 @@ const UserManage = ({
     if(currentDeposit === "false"){
       option = "true";
     }
-    console.log(currentDeposit,option)
   
     server.put("/member/deposit", {
       data: {
